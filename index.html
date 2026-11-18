@@ -19,11 +19,16 @@
   form { display: flex; flex-direction: column; gap: 26px; }
   .q { display: flex; flex-direction: column; gap: 10px; border: 0; padding: 0; margin: 0; min-width: 0; }
   .q > legend, .q > label { font-weight: 600; padding: 0; margin-bottom: 10px; }
+  .opc { font-weight: 400; color: var(--muted); }
+  textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; width: 100%; box-sizing: border-box; resize: vertical; }
   input[type=text] { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; width: 100%; box-sizing: border-box; }
   .opcoes { display: flex; gap: 6px; flex-wrap: wrap; }
   .opcoes button { font: inherit; flex: 1 1 0; min-width: 52px; min-height: 48px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--fg); cursor: pointer; }
   .opcoes button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
   .escala { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  #dominio button, #atencao button { min-width: 0; }
+  .legenda { display: flex; gap: 6px; margin-top: -4px; }
+  .legenda span { flex: 1 1 0; min-width: 0; text-align: center; font-size: 11px; line-height: 1.2; color: var(--muted); }
   .enviar { font: inherit; font-weight: 600; min-height: 52px; border: 0; border-radius: 12px; background: var(--fg); color: var(--bg); cursor: pointer; }
   .enviar:disabled { opacity: .5; }
   .erro { color: var(--bad); font-size: 14px; min-height: 1em; margin: -14px 0 0; }
@@ -47,13 +52,16 @@
 
   <form id="f" novalidate hidden>
     <div class="q"><label for="nome">Seu nome</label><input type="text" id="nome" autocomplete="name" placeholder="Ex.: Paula Souza" maxlength="80"></div>
-    <fieldset class="q"><legend>Como foi a sessão?</legend>
-      <div class="opcoes" id="nota" role="group" aria-label="Nota de 1 a 5"><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button></div>
-      <div class="escala"><span>Ruim</span><span>Ótima</span></div>
+    <fieldset class="q"><legend><span id="q-dom">O implantador demonstrou domínio do sistema?</span></legend>
+      <div class="opcoes" id="dominio" role="group" aria-labelledby="q-dom"><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button></div>
     </fieldset>
-    <fieldset class="q"><legend>Suas dúvidas foram resolvidas?</legend>
-      <div class="opcoes" id="duvidas" role="group" aria-label="Dúvidas resolvidas"><button type="button" data-v="sim">Sim</button><button type="button" data-v="em parte">Em parte</button><button type="button" data-v="nao">Não</button></div>
+    <fieldset class="q"><legend><span id="q-at">O implantador deu atenção às suas dúvidas?</span></legend>
+      <div class="opcoes" id="atencao" role="group" aria-labelledby="q-at"><button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button></div>
     </fieldset>
+    <fieldset class="q"><legend><span id="q-pont">O implantador estava pronto no horário combinado?</span></legend>
+      <div class="opcoes" id="pontual" role="group" aria-labelledby="q-pont"><button type="button" data-v="sim">Sim</button><button type="button" data-v="nao">Não</button></div>
+    </fieldset>
+    <div class="q"><label for="coment">Quer deixar algum comentário ou sugestão sobre esta sessão? <span class="opc">(opcional)</span></label><textarea id="coment" rows="4" maxlength="500"></textarea></div>
     <p class="erro" id="erro" role="alert"></p>
     <button type="submit" class="enviar" id="enviar">Enviar</button>
   </form>
@@ -76,29 +84,38 @@
     let r; try { r = await chamar({ acao: 'avInfo', sessao: cod }); } catch (e) { return aviso('Sem conexão', 'Não foi possível carregar a sessão. Tente de novo em instantes.'); }
     if (!r || !r.ok) return aviso('Sessão indisponível', 'Este código não corresponde a uma sessão ativa.');
     const s = r.sessao, d = new Date(s.data + 'T12:00:00Z');
-    $('cli').textContent = s.cliente; $('ct').textContent = `Contrato ${s.contrato} · ${s.tipo}`;
+    $('cli').textContent = `${s.contrato} ${s.cliente}`; $('ct').textContent = s.tipo;
     $('data').textContent = `${DIAS[d.getUTCDay()]}, ${s.data.slice(8, 10)}/${s.data.slice(5, 7)}/${s.data.slice(0, 4)}`;
     $('hora').textContent = `${s.inicio} – ${s.fim}`; $('imp').textContent = s.implantador; $('rot-imp').textContent = s.fem ? 'Implantadora' : 'Implantador';
+    if (s.fem) for (const id of ['q-dom', 'q-at', 'q-pont']) $(id).textContent = $(id).textContent.replace(/^O implantador/, 'A implantadora').replace('estava pronto', 'estava pronta');
     $('carregando').hidden = true; $('cab').hidden = false; $('dados').hidden = false;
     if (r.janela === 'antes') return aviso('A avaliação abre no início da sessão', 'Volte a este código ao final da sessão.');
     if (r.janela === 'depois') return aviso('O prazo para avaliar esta sessão terminou');
     $('f').hidden = false;
   })();
 
-  const esc = { nota: '', duvidas: '' };
-  for (const g of ['nota', 'duvidas']) $(g).addEventListener('click', (e) => {
+  const LEGENDA = { 1: 'Péssimo', 2: 'Ruim', 3: 'Regular', 4: 'Bom', 5: 'Excelente' };
+  const esc = { dominio: '', atencao: '', pontual: '' };
+  for (const g of Object.keys(esc)) $(g).addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return; esc[g] = b.dataset.v; $('erro').textContent = '';
     $(g).querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
   });
+  // Notas de 0 a 5: legenda embaixo dos botões, cada palavra alinhada ao seu número.
+  for (const g of ['dominio', 'atencao']) {
+    const leg = document.createElement('div'); leg.className = 'legenda'; leg.setAttribute('aria-hidden', 'true');
+    $(g).querySelectorAll('button').forEach((b) => { b.setAttribute('aria-label', `${b.dataset.v}, ${LEGENDA[b.dataset.v]}`); leg.append(Object.assign(document.createElement('span'), { textContent: LEGENDA[b.dataset.v] })); });
+    $(g).after(leg);
+  }
   $('nome').addEventListener('input', () => { $('erro').textContent = ''; });
   $('f').addEventListener('submit', async (e) => {
     e.preventDefault();
     const nome = $('nome').value.trim();
     if (!nome) { $('erro').textContent = 'Informe seu nome.'; $('nome').focus(); return; }
-    if (!esc.nota) { $('erro').textContent = 'Escolha uma nota de 1 a 5.'; return; }
-    if (!esc.duvidas) { $('erro').textContent = 'Responda se as dúvidas foram resolvidas.'; return; }
+    if (!esc.dominio) { $('erro').textContent = 'Responda de 1 a 5 sobre o domínio do sistema.'; return; }
+    if (!esc.atencao) { $('erro').textContent = 'Responda de 1 a 5 sobre a atenção às suas dúvidas.'; return; }
+    if (!esc.pontual) { $('erro').textContent = 'Responda se a sessão começou no horário combinado.'; return; }
     $('enviar').disabled = true; $('enviar').textContent = 'Enviando…';
-    let r = null; try { r = await chamar({ acao: 'avaliar', sessao: cod, nome, nota: Number(esc.nota), duvidas: esc.duvidas }); } catch (err) { r = null; }
+    let r = null; try { r = await chamar({ acao: 'avaliar', sessao: cod, nome, dominio: Number(esc.dominio), atencao: Number(esc.atencao), pontual: esc.pontual, comentario: $('coment').value.trim() }); } catch (err) { r = null; }
     if (r && r.ok) return aviso(`Obrigado, ${nome.split(' ')[0]}!`, 'Sua avaliação foi registrada.', true);
     $('erro').textContent = r && r.erro === 'prazo' ? 'O prazo para avaliar esta sessão terminou.' : 'Não foi possível enviar. Tente de novo.';
     $('enviar').disabled = false; $('enviar').textContent = 'Enviar';
