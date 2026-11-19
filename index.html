@@ -39,6 +39,8 @@
   .cert-bts { display: flex; justify-content: center; gap: 16px; }
   .ico-bt { width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--fg); color: var(--bg); display: grid; place-items: center; cursor: pointer; }
   .ico-bt svg { width: 26px; height: 26px; }
+  .dica { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 14px; }
+  .dica p { margin: 6px 0 0; color: var(--muted); } .dica p b { color: var(--fg); }
   .enviar.sec { background: var(--bg); color: var(--fg); border: 1px solid var(--fg); }
   [hidden] { display: none !important; }
 </style>
@@ -78,7 +80,12 @@
     <img id="cert-img" alt="Certificado da sessão">
     <div class="cert-bts">
       <button type="button" class="ico-bt" id="baixar" aria-label="Baixar" title="Baixar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg></button>
-      <button type="button" class="ico-bt" id="compartilhar" aria-label="Compartilhar no LinkedIn" title="Compartilhar no LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4V21H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.84-2.05 3.78-2.05 4.04 0 4.79 2.66 4.79 6.12V21h-4v-4.93c0-1.18-.02-2.69-1.64-2.69-1.64 0-1.89 1.28-1.89 2.6V21h-4z"/></svg></button>
+      <button type="button" class="ico-bt" id="compartilhar" aria-label="Adicionar ao perfil do LinkedIn" title="Adicionar ao perfil do LinkedIn"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9.75h4V21H3zM9.5 9.75h3.8v1.6h.06c.53-1 1.84-2.05 3.78-2.05 4.04 0 4.79 2.66 4.79 6.12V21h-4v-4.93c0-1.18-.02-2.69-1.64-2.69-1.64 0-1.89 1.28-1.89 2.6V21h-4z"/></svg></button>
+    </div>
+    <!-- aparece depois de tocar no LinkedIn: como pôr a imagem (o LinkedIn não aceita mídia pelo link) -->
+    <div class="dica" id="dica-li" hidden>
+      <b>Quer a imagem no seu perfil?</b>
+      <p>Depois de salvar o certificado no LinkedIn, abra ele de novo, toque em <b>Adicionar mídia → Adicionar imagem</b> e escolha o arquivo <b id="dica-arq"></b>, que acabou de ser baixado. No título, escreva “<span id="dica-tit"></span>”.</p>
     </div>
   </section>
 
@@ -146,23 +153,28 @@
     return new Promise((r) => c.toBlob(r, 'image/png'));
   }
   const nomeArq = () => `certificado-${String(sessao.tipo).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
-  const textoPost = () => `Concluí a sessão de treinamento de ${sessao.tipo} no PrefSuite com a equipe de Implantação da Preference.`;
   const baixar = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(certPng); a.download = nomeArq(); document.body.append(a); a.click(); a.remove(); };
   // quem agradece é o implantador da sessão: "Obrigada" quando é uma implantadora
   const obrigado = (nome) => `${sessao && sessao.fem ? 'Obrigada' : 'Obrigado'}, ${nome.split(' ')[0]}!`;
+  let nomeCert = '';
   async function mostrarCertificado(nome) {
+    nomeCert = nome;
     certPng = await desenharCertificado(nome, sessao);
     $('cab').hidden = true; $('dados').hidden = true; $('f').hidden = true;
     $('aviso').hidden = true; $('cert-tit').textContent = obrigado(nome); $('cert-img').src = URL.createObjectURL(certPng); $('cert').hidden = false;
     window.scrollTo(0, 0);
   }
   $('baixar').addEventListener('click', baixar);
-  // Compartilhar: no celular abre o menu do aparelho já com a imagem (escolha o LinkedIn);
-  // no computador baixa a imagem e abre o LinkedIn com o texto pronto, para anexar a imagem.
-  $('compartilhar').addEventListener('click', async () => {
-    const arq = new File([certPng], nomeArq(), { type: 'image/png' });
-    if (navigator.canShare && navigator.canShare({ files: [arq] })) { try { await navigator.share({ files: [arq], text: textoPost() }); } catch (e) {} return; }
-    baixar(); window.open('https://www.linkedin.com/feed/?shareActive=true&text=' + encodeURIComponent(textoPost()), '_blank', 'noopener');
+  // LinkedIn: abre "Adicionar licença ou certificado" no perfil da pessoa, já preenchido
+  // (nome do certificado, emissora Preference, mês e ano e o código da sessão como ID da credencial).
+  $('compartilhar').addEventListener('click', () => {
+    const q = new URLSearchParams({ startTask: 'CERTIFICATION_NAME', name: `${sessao.tipo} no PrefSuite`, organizationId: '2429816', /* página da Preference no LinkedIn (sai com o logo) */
+      issueYear: sessao.data.slice(0, 4), issueMonth: String(Number(sessao.data.slice(5, 7))), certId: cod,
+      // "Mostrar credencial": página pública que confere a sessão e mostra o certificado desta pessoa
+      certUrl: `https://implantacao-preference.github.io/certificado.html?s=${encodeURIComponent(cod)}&n=${encodeURIComponent(nomeCert)}` });
+    window.open('https://www.linkedin.com/profile/add?' + q.toString(), '_blank', 'noopener');
+    baixar(); // a imagem já fica no aparelho para anexar como mídia
+    $('dica-arq').textContent = nomeArq(); $('dica-tit').textContent = `Certificado – ${sessao.tipo} no PrefSuite`; $('dica-li').hidden = false;
   });
   const aviso = (tit, sub, ok) => { $('carregando').hidden = true; $('f').hidden = true; $('aviso').hidden = false; $('aviso-tit').textContent = tit; $('aviso-sub').textContent = sub || ''; $('marca').hidden = !ok; };
 
