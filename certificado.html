@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Certificado de treinamento · Preference</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+  /* Página pública do certificado (URL da credencial no LinkedIn): ?s=<código da sessão>&n=<nome>.
+     Confere no Painel da Implantação que a sessão existe e desenha o certificado na hora (nada fica guardado). */
+  :root { --bg: #FFFFFF; --fg: #111111; --muted: #8A8A8A; --line: #E6E6E6; --ok: #2E9A47; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font-family: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 16px; line-height: 1.45; padding: 28px 16px 40px; }
+  main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+  h1 { font-size: 26px; margin: 0; } .sub { color: var(--muted); margin: 4px 0 0; }
+  img { width: 100%; aspect-ratio: 1; border-radius: 14px; display: block; }
+  .selo { margin: 0; font-size: 14px; color: var(--muted); }
+  .selo b { color: var(--ok); font-weight: 600; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <p class="sub" id="carregando" style="text-align:center;padding:40px 0">Carregando…</p>
+  <header id="cab" hidden><p class="eyebrow">Certificado de treinamento</p><h1 id="tit"></h1><p class="sub" id="det"></p></header>
+  <img id="img" alt="Certificado" hidden>
+  <p class="selo" id="selo" hidden><b>✓ Verificado:</b> sessão registrada pela Equipe de Implantação da Preference</p>
+  <section id="erro" hidden style="text-align:center;padding:32px 0"><h1>Certificado indisponível</h1><p class="sub">Este endereço não corresponde a um certificado válido.</p></section>
+</main>
+<script>
+(() => {
+  const API = 'https://script.google.com/macros/s/AKfycbxmCmfv-BK2xOwfg3B1MgUpGEUCVqqeJ47zQRg_FGra1kPHATg-7VX7KH_fybuvqLkVmw/exec';
+  const qs = new URLSearchParams(location.search), cod = (qs.get('s') || '').slice(0, 40), nome = (qs.get('n') || '').trim().slice(0, 80);
+  const $ = (id) => document.getElementById(id);
+  const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const falha = () => { $('carregando').hidden = true; $('erro').hidden = false; };
+  /* Certificado da sessão (quadrado, para LinkedIn e Instagram), estética contemporânea:
+     fundo em degradê laranja com manchas de luz (gradientes radiais, funcionam em qualquer celular) e granulado fino;
+     pílula preta "Certificado"; nome e tema grandes em branco; dados num cartão de vidro fosco. */
+  async function desenharCertificado(nome, s) {
+    try { await Promise.all(['700 190px "Instrument Sans"', '600 38px "Instrument Sans"', '500 28px "Instrument Sans"'].map((f) => document.fonts.load(f))); } catch (e) {}
+    const c = document.createElement('canvas'); c.width = 1080; c.height = 1080;
+    const g = c.getContext('2d'), W = 1080, M = 72, F = '"Instrument Sans", system-ui, sans-serif';
+    const esp = (v) => { try { g.letterSpacing = `${v}px`; } catch (e) {} };
+    const txt = (t, x, y, tam, peso, cor, al = 'left', e = 0) => { g.font = `${peso} ${tam}px ${F}`; esp(e); g.fillStyle = cor; g.textAlign = al; g.fillText(t, x, y); esp(0); };
+    const larg = (t, tam, peso, e) => { g.font = `${peso} ${tam}px ${F}`; esp(e); const w = g.measureText(t).width; esp(0); return w; };
+    const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+    const min = (h) => { const [a, b] = h.split(':').map(Number); return a * 60 + b; };
+    const hh = Math.max(0, (min(s.fim) - min(s.inicio)) / 60), horas = `${String(Math.round(hh * 10) / 10).replace('.', ',')} ${hh === 1 ? 'hora' : 'horas'}`;
+    // fundo: base laranja + manchas de luz e sombra
+    g.fillStyle = '#FF6700'; g.fillRect(0, 0, W, W);
+    [['255,176,102', 860, 120, 560, 0.95], ['255,138,31', 140, 260, 480, 0.8], ['224,62,0', 980, 900, 620, 0.9], ['201,52,0', 60, 1040, 520, 0.85], ['255,154,60', 520, 620, 380, 0.6]].forEach(([rgb, x, y, r, a]) => {
+      const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${rgb},${a})`); gr.addColorStop(1, `rgba(${rgb},0)`); g.fillStyle = gr; g.fillRect(0, 0, W, W);
+    });
+    // granulado fino
+    const img = g.getImageData(0, 0, W, W), p = img.data;
+    for (let i = 0; i < p.length; i += 4) { const n = (Math.random() - 0.5) * 18; p[i] += n; p[i + 1] += n; p[i + 2] += n; }
+    g.putImageData(img, 0, 0);
+    // topo
+    g.fillStyle = 'rgba(17,17,17,.92)'; rr(M, 72, 236, 56, 28); g.fill();
+    g.fillStyle = '#FF6700'; g.beginPath(); g.arc(M + 30, 100, 7, 0, Math.PI * 2); g.fill();
+    txt('Certificado', M + 50, 109, 26, 600, '#FFFFFF');
+    txt('Preference', W - M, 112, 34, 700, '#FFFFFF', 'right', -0.5);
+    // nome e tema
+    txt('Concedido a', M, 260, 28, 500, 'rgba(255,255,255,.78)');
+    let tn = 68; while (tn > 40 && larg(nome, tn, 700, -1.5) > W - 2 * M) tn -= 2;
+    txt(nome, M, 336, tn, 700, '#FFFFFF', 'left', -1.5);
+    txt('pela conclusão da sessão de treinamento', M, 430, 28, 500, 'rgba(255,255,255,.78)');
+    let tam = 190; while (tam > 70 && larg(s.tipo, tam, 700, -tam * 0.045) > W - 2 * M) tam -= 2;
+    g.save(); g.shadowColor = 'rgba(120,30,0,.35)'; g.shadowBlur = 40; g.shadowOffsetY = 10;
+    txt(s.tipo, M - tam * 0.03, 440 + tam * 0.9, tam, 700, '#FFFFFF', 'left', -tam * 0.045); g.restore();
+    // cartão de vidro com os dados
+    const cx = M, cy = 760, cw = W - 2 * M, ch = 176;
+    g.save(); rr(cx, cy, cw, ch, 32); g.fillStyle = 'rgba(255,255,255,.16)'; g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = 2; g.stroke(); g.restore();
+    [[s.fem ? 'Implantadora' : 'Implantador', s.implantador, 0], ['Carga horária', horas, 0.34], ['Data', `${MESES[Number(s.data.slice(5, 7)) - 1]} de ${s.data.slice(0, 4)}`, 0.6]].forEach(([rot, val, f], i) => {
+      const x = cx + 40 + (cw - 80) * f;
+      if (i) { g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(x - 28, cy + 36, 2, ch - 72); }
+      txt(rot, x, cy + 70, 24, 500, 'rgba(255,255,255,.78)');
+      txt(val, x, cy + 122, 38, 600, '#FFFFFF', 'left', -0.5);
+    });
+    txt('Equipe de Implantação', M, W - 62, 26, 600, '#111111');
+    return new Promise((r) => c.toBlob(r, 'image/png'));
+  }
+
+  (async () => {
+    if (!cod || !nome) return falha();
+    let r; try { r = await (await fetch(API, { method: 'POST', body: JSON.stringify({ acao: 'avInfo', sessao: cod }), credentials: 'omit', redirect: 'follow' })).json(); } catch (e) { return falha(); }
+    if (!r || !r.ok) return falha();
+    const s = r.sessao;
+    const png = await desenharCertificado(nome, s);
+    $('tit').textContent = nome; $('det').textContent = `${s.tipo} no PrefSuite · ${MESES[Number(s.data.slice(5, 7)) - 1]} de ${s.data.slice(0, 4)}`;
+    $('img').src = URL.createObjectURL(png);
+    $('carregando').hidden = true; $('cab').hidden = false; $('img').hidden = false; $('selo').hidden = false;
+  })();
+})();
+</script>
+</body>
+</html>
